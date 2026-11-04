@@ -2,16 +2,16 @@
 //
 // Questions live in QUESTIONS_FILE (a Railway volume at /data in production).
 // Anyone can send a question and see the one on screen. Seeing the whole list,
-// or choosing what goes on screen, needs HOST_KEY, which the host link carries as ?key=.
+// or choosing what goes on screen, needs the admin login (admin.js).
 
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const admin = require('./admin');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || 8080;
-const KEY = process.env.HOST_KEY || '';
 const FILE = process.env.QUESTIONS_FILE || path.join(ROOT, 'data', 'questions.json');
 const MAX_TEXT = 280;
 const MAX_NAME = 30;
@@ -68,11 +68,6 @@ function hostView() {
   };
 }
 
-function keyOk(req) {
-  const given = Buffer.from(String(req.headers['x-host-key'] || ''));
-  const want = Buffer.from(KEY);
-  return KEY !== '' && given.length === want.length && crypto.timingSafeEqual(given, want);
-}
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
   res.end(JSON.stringify(body));
@@ -109,7 +104,7 @@ async function ask(req, res) {
 }
 
 async function host(req, res) {
-  if (!keyOk(req)) return json(res, 403, { error: 'Wrong or missing key' });
+  if (!admin.isAdmin(req)) return json(res, 403, { error: 'Please log in' });
   if (req.method === 'GET') return json(res, 200, hostView());
   if (req.method !== 'POST') { res.writeHead(405, { Allow: 'GET, POST' }); return res.end(); }
   const { action, id, open } = await readBody(req);
@@ -128,7 +123,7 @@ async function host(req, res) {
   return json(res, 200, hostView());
 }
 
-const ROUTES = { '/api/current': (req, res) => json(res, 200, publicView()), '/api/questions': ask, '/api/host': host };
+const ROUTES = { '/api/current': (req, res) => json(res, 200, publicView()), '/api/questions': ask, '/api/host': host, ...admin.routes };
 
 http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -144,4 +139,4 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': TYPES[path.extname(name)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
     res.end(req.method === 'HEAD' ? undefined : data);
   });
-}).listen(PORT, () => console.log(`Panel questions on port ${PORT}; questions file ${FILE}; key ${KEY ? 'set' : 'NOT set'}`));
+}).listen(PORT, () => console.log(`Panel questions on port ${PORT}; questions file ${FILE}; admin login ${admin.ready ? 'set' : 'NOT set'}`));

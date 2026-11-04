@@ -110,6 +110,17 @@
   .foot { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 2px solid var(--edge); }
   .foot a.ghost { text-decoration: none; }
   .foot .danger { margin-left: auto; }
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .login-card { width: min(420px, 100%); display: grid; gap: 4px; }
+  .login-card h1 { margin: 2px 0 6px; font-size: 34px; font-weight: 700; }
+  .is-host .login-card .field > label { font-size: 18px; font-weight: 700; color: #fff; }
+  .is-host .login-card input[type=text], .is-host .login-card input[type=password] { width: 100%; font: 400 20px var(--font); color: #fff; background: #000; border: 2px solid #fff; border-radius: 12px; padding: 13px 14px; }
+  .is-host .login-card input:focus { outline: 3px solid var(--hi); outline-offset: 2px; }
+  .show-pass { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 17px; color: #fff; }
+  .show-pass input { width: 22px; height: 22px; accent-color: var(--hi); }
+  .is-host .err { padding: 8px 12px; border-radius: 10px; background: #fff; color: #000; font-weight: 700; font-size: 17px; }
+  .is-host .err::before { content: "⚠ "; }
+  .is-host .go { margin-top: 16px; font-weight: 700; color: #000; background: var(--hi); box-shadow: none; }
   .foot .danger.armed { background: var(--hi); border-color: var(--hi); color: #000; }
   @media (max-width: 560px) { .onscreen { grid-template-columns: 1fr; } .onscreen .ghost { margin-top: 8px; } }
   @media (min-width: 900px) { .host { padding-top: 24px; } }
@@ -219,15 +230,27 @@
   <footer class="foot">
     <a class="ghost" id="screen-link" target="_blank" rel="noopener">Open the screen view</a>
     <button class="ghost" id="csv" type="button">Download all (CSV)</button>
+    <button class="ghost" id="logout" type="button">Log out</button>
     <button class="ghost danger" id="reset" type="button">Delete all questions</button>
   </footer>
 </main>
 
-<main class="phone" id="nokey" hidden>
-  <section class="card">
-    <h2 style="margin:0">This link needs the host key</h2>
-    <p class="sub" style="font-size:15px">Open the host link that ends in <b>?host&amp;key=…</b> exactly as you were given it.</p>
-  </section>
+<main class="login" id="login" hidden>
+  <form class="login-card" id="login-form" novalidate>
+    <p class="eyebrow">Host view</p>
+    <h1>Log in</h1>
+    <div class="field">
+      <label for="login-user">Username</label>
+      <input type="text" id="login-user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+    </div>
+    <div class="field">
+      <label for="login-pass">Password</label>
+      <input type="password" id="login-pass" autocomplete="current-password" required>
+    </div>
+    <label class="show-pass"><input type="checkbox" id="login-show"> Show password</label>
+    <p class="err" id="login-err" role="alert" hidden></p>
+    <button class="go" id="login-go" type="submit">Log in</button>
+  </form>
 </main>
 
 <!-- ============ SCREEN ============ -->
@@ -265,7 +288,6 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
-  const KEY = params.get('key') || '';
   const PHONE_URL = location.origin + location.pathname.replace(/index\.html$/, '');
   const SHORT_URL = (location.host + location.pathname).replace(/\/(index\.html)?$/, '');
 
@@ -335,21 +357,48 @@
   }
 
   // ---------- Host ----------
+  // ---------- Login (host view) ----------
+  // The server checks the username and password and sets a cookie the page cannot read.
+  function askLogin(onDone) {
+    $('login').hidden = false;
+    if (!$('login-user').value) $('login-user').focus();
+    $('login-show').onchange = () => { $('login-pass').type = $('login-show').checked ? 'text' : 'password'; };
+    $('login-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const go = $('login-go'), err = $('login-err');
+      go.disabled = true; go.textContent = 'Checking…'; err.hidden = true;
+      try {
+        const r = await api('/api/login', { method: 'POST', body: JSON.stringify({ user: $('login-user').value.trim(), password: $('login-pass').value }) });
+        if (r.ok) { $('login-pass').value = ''; $('login').hidden = true; onDone(); }
+        else { err.textContent = r.data?.error || 'That did not work. Please try again.'; err.hidden = false; }
+      } catch (e2) {
+        err.textContent = 'No connection. Please check the internet and try again.'; err.hidden = false;
+      } finally {
+        go.disabled = false; go.textContent = 'Log in';
+      }
+    };
+  }
+
   function host() {
     document.body.classList.add('is-host');
-    $('host').hidden = false;
-    const H = { 'X-Host-Key': KEY };
     const nodes = new Map();
-    let data = null, tab = 'waiting', lastSig = '', lastWaiting = -1, armed = null;
+    let data = null, tab = 'waiting', lastSig = '', lastWaiting = -1, armed = null, started = false;
     $('screen-link').href = PHONE_URL + '?screen';
 
     function status(msg, good) { $('host-status').textContent = msg; $('host-status').classList.toggle('bad', !good); }
-    function noKey() { $('host').hidden = true; $('nokey').hidden = false; }
+    function start() {
+      $('host').hidden = false;
+      if (started) return void load();
+      started = true;
+      every(3000, load);
+    }
+    function loggedOut() { $('host').hidden = true; askLogin(start); }
 
     async function load() {
+      if (!$('login').hidden) return;
       try {
-        const r = await api('/api/host', { headers: H });
-        if (r.status === 403) return noKey();
+        const r = await api('/api/host');
+        if (r.status === 403) return loggedOut();
         if (!r.ok) throw new Error(r.status);
         render(r.data);
         status('Live · updated ' + new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', second: '2-digit' }), true);
@@ -357,8 +406,8 @@
     }
     async function act(body) {
       try {
-        const r = await api('/api/host', { method: 'POST', headers: H, body: JSON.stringify(body) });
-        if (r.status === 403) return noKey();
+        const r = await api('/api/host', { method: 'POST', body: JSON.stringify(body) });
+        if (r.status === 403) return loggedOut();
         if (!r.ok) throw new Error(r.status);
         render(r.data);
       } catch (e) { status('That did not save. Check the connection and try again.', false); }
@@ -467,8 +516,12 @@
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     });
 
-    if (!KEY) return noKey();
-    every(3000, load);
+    $('logout').addEventListener('click', async () => {
+      try { await api('/api/logout', { method: 'POST' }); } catch (e) {}
+      loggedOut();
+    });
+
+    api('/api/session').then((r) => (r.data?.admin ? start() : loggedOut())).catch(loggedOut);
   }
 
   // ---------- Screen ----------
