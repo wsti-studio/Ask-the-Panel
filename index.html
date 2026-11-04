@@ -7,7 +7,7 @@
 <meta name="description" content="Send a question to the panel at WSTI Festi 2026. The host picks which questions to ask.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Figtree:wght@400;600;700;800;900&display=swap">
 <style>
   /* Three views on one page: phone (default), ?host&key= for the moderator, ?screen for the projector. */
   :root {
@@ -62,43 +62,56 @@
   .done p, .closed p { margin: 6px 0 14px; color: var(--ink-2); }
   .closed p { margin-bottom: 0; }
 
-  /* ---------- Host (phone as cue cards, or a laptop) ---------- */
-  .host { max-width: 780px; margin: 0 auto; padding: 14px max(14px, env(safe-area-inset-left, 0px)) 40px; display: grid; gap: 12px; }
+  /* ---------- Host (phone as cue cards, or a laptop) ----------
+     High contrast for Asha: black, white, and one yellow for "Ask this" and what is on screen.
+     Atkinson Hyperlegible (Braille Institute, for low vision) in regular and bold only, so letters never merge. */
+  body.is-host { background: #000; --hi: #FFD23F; --edge: #6B6B6B; --font: "Atkinson Hyperlegible", Verdana, system-ui, sans-serif; }
+  .is-host .eyebrow, .is-host .label, .is-host .ghost { font-weight: 700; }
+  .is-host .eyebrow { color: #fff; font-size: 14px; }
+  .is-host .label { color: var(--hi); font-size: 14px; }
+  .is-host .ghost { font-size: 16px; color: #fff; border: 2px solid #fff; }
+  .is-host :focus-visible { outline-color: var(--hi); }
+  .host { max-width: 780px; margin: 0 auto; padding: 14px max(14px, env(safe-area-inset-left, 0px)) 40px; display: grid; gap: 14px; }
   .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .bar h1 { margin: 0; font-size: 26px; font-weight: 900; line-height: 1.1; }
-  .toggle { font: 800 14px var(--font); border-radius: 999px; padding: 9px 14px; border: 1px solid rgba(24,203,150,.5); background: rgba(24,203,150,.14); color: var(--ink); white-space: nowrap; }
-  .toggle::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--green); margin-right: 8px; vertical-align: 1px; }
-  .toggle[aria-pressed="false"] { border-color: var(--line); background: transparent; color: var(--muted); }
-  .toggle[aria-pressed="false"]::before { background: var(--muted); }
-  .status { margin: -4px 0 0; font-size: 13px; color: var(--muted); }
-  .status.bad { color: var(--danger); font-weight: 700; }
-  .onscreen { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 14px 16px; border-radius: 16px; background: #0E2742; border: 2px solid var(--amber); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .bar h1 { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.1; }
+  .toggle { font: 700 15px var(--font); border-radius: 999px; padding: 10px 16px; border: 2px solid #fff; background: #fff; color: #000; white-space: nowrap; }
+  .toggle::before { content: "●"; margin-right: 7px; }
+  .toggle[aria-pressed="false"] { background: #000; color: #fff; border-style: dashed; }
+  .toggle[aria-pressed="false"]::before { content: "❚❚"; letter-spacing: -2px; }
+  .status { margin: -4px 0 0; font-size: 15px; font-weight: 400; color: #fff; }
+  .status.bad { justify-self: start; padding: 4px 10px; border-radius: 8px; background: var(--hi); color: #000; font-weight: 700; }
+  .onscreen { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 16px; border-radius: 16px; background: #000; border: 4px solid var(--hi); box-shadow: 0 10px 24px #000; }
   .onscreen .label { grid-column: 1 / -1; }
-  .onscreen p.os { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.35; }
-  .onscreen.empty { position: static; border-color: var(--line); box-shadow: none; }
-  .onscreen.empty p.os { color: var(--muted); font-weight: 600; }
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 5px; }
-  .tabs button { font: 800 15px var(--font); color: var(--ink-2); background: transparent; border: 0; border-radius: 10px; padding: 10px 6px; }
-  .tabs button b { display: inline-block; min-width: 26px; margin-left: 4px; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.1); font-size: 13px; font-variant-numeric: tabular-nums; }
-  .tabs button[aria-selected="true"] { background: var(--navy); color: var(--ink); }
-  .tabs button[aria-selected="true"] b { background: var(--amber); color: var(--night); }
-  .tabs b.bump { animation: bump .6s ease; }
-  @keyframes bump { 40% { transform: scale(1.35); } }
-  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .q { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
-  .q.live { border-color: var(--amber); background: rgba(240,168,48,.08); }
-  .q .text { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
-  .q .meta { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
-  .q .actions { display: flex; gap: 8px; margin-top: 12px; }
-  .q .actions button { flex: 1; font: 900 16px var(--font); border-radius: 12px; padding: 12px 10px; }
-  .act-show { border: 0; color: var(--night); background: linear-gradient(90deg, var(--amber), var(--orange)); }
-  .act-skip, .act-restore { color: var(--ink-2); background: transparent; border: 1px solid var(--line); }
-  .badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--amber); color: var(--night); font-weight: 900; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
-  .empty-note { margin: 8px 0; text-align: center; color: var(--muted); }
-  .foot { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .onscreen p.os { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.35; color: #fff; }
+  .onscreen p.os-who { margin: 6px 0 0; font-size: 17px; font-weight: 700; color: #fff; }
+  .onscreen p.os-who.anon { font-weight: 400; font-style: italic; }
+  .onscreen.empty { position: static; border: 2px solid var(--edge); box-shadow: none; }
+  .onscreen.empty .label { color: #fff; }
+  .onscreen.empty p.os { font-weight: 400; font-size: 17px; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tabs button { font: 700 17px var(--font); color: #fff; background: #000; border: 2px solid #fff; border-radius: 12px; padding: 11px 6px; }
+  .tabs button b { margin-left: 6px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tabs button[aria-selected="true"] { background: #fff; color: #000; }
+  .tabs b.bump { display: inline-block; animation: bump .6s ease; }
+  @keyframes bump { 40% { transform: scale(1.4); } }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .q { background: #141414; border: 2px solid var(--edge); border-radius: 16px; padding: 16px; }
+  .q.live { border: 4px solid var(--hi); }
+  .q .text { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.35; color: #fff; overflow-wrap: anywhere; }
+  .q .meta { margin: 8px 0 0; font-size: 17px; font-weight: 400; color: #fff; }
+  .q .meta .who { font-weight: 700; }
+  .q .meta .anon { font-weight: 400; font-style: italic; }
+  .q .actions { display: flex; gap: 10px; margin-top: 14px; }
+  .q .actions button { flex: 1; font: 700 18px var(--font); border-radius: 12px; padding: 14px 10px; }
+  .act-show { border: 2px solid var(--hi); color: #000; background: var(--hi); }
+  .act-skip, .act-restore { color: #fff; background: #000; border: 2px solid #fff; }
+  .badge { display: inline-block; margin-left: 8px; padding: 2px 9px; border-radius: 6px; background: var(--hi); color: #000; font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; vertical-align: 2px; }
+  .empty-note { margin: 8px 0; text-align: center; font-size: 17px; color: #fff; }
+  .foot { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 2px solid var(--edge); }
   .foot a.ghost { text-decoration: none; }
-  .foot .danger { color: var(--danger); border-color: rgba(255,138,122,.35); margin-left: auto; }
-  .foot .danger.armed { background: var(--danger); color: var(--night); }
+  .foot .danger { margin-left: auto; }
+  .foot .danger.armed { background: var(--hi); border-color: var(--hi); color: #000; }
+  @media (max-width: 560px) { .onscreen { grid-template-columns: 1fr; } .onscreen .ghost { margin-top: 8px; } }
   @media (min-width: 900px) { .host { padding-top: 24px; } }
 
   /* ---------- Screen (projector, 16:9) ---------- */
@@ -188,7 +201,10 @@
 
   <section class="onscreen empty" id="onscreen" aria-live="polite">
     <p class="label">On screen now</p>
-    <p class="os" id="os-text">Nothing. The screen shows the QR code.</p>
+    <div>
+      <p class="os" id="os-text">Nothing. The screen shows the QR code.</p>
+      <p class="os-who" id="os-who" hidden></p>
+    </div>
     <button class="ghost" id="hide" type="button" hidden>Take off screen</button>
   </section>
 
@@ -320,6 +336,7 @@
 
   // ---------- Host ----------
   function host() {
+    document.body.classList.add('is-host');
     $('host').hidden = false;
     const H = { 'X-Host-Key': KEY };
     const nodes = new Map();
@@ -359,7 +376,10 @@
       const live = data.current === q.id;
       li.classList.toggle('live', live);
       const meta = li.querySelector('.meta');
-      meta.textContent = (q.name || 'Anonymous') + ' · ' + clock(q.at);
+      const who = document.createElement('span');
+      who.className = q.name ? 'who' : 'anon';
+      who.textContent = q.name || 'Anonymous';
+      meta.replaceChildren(who, ' · ' + clock(q.at));
       if (live) { const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'On screen'; meta.append(b); }
       const want = q.status + (live ? ':live' : '');
       if (li.dataset.state !== want) {
@@ -398,6 +418,8 @@
       const live = d.questions.find((q) => q.id === d.current);
       $('onscreen').classList.toggle('empty', !live);
       $('os-text').textContent = live ? live.text : 'Nothing. The screen shows the QR code.';
+      $('os-who').hidden = !live;
+      if (live) { $('os-who').className = 'os-who ' + (live.name ? 'who' : 'anon'); $('os-who').textContent = live.name || 'Anonymous'; }
       $('hide').hidden = !live;
 
       $('open-toggle').setAttribute('aria-pressed', String(d.open));
