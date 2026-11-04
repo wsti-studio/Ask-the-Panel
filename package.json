@@ -1,0 +1,11 @@
+{
+  "name": "panel-questions",
+  "private": true,
+  "description": "WSTI Festi live panel Q&A: audience phones send questions, the host picks one, the big screen shows it",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
